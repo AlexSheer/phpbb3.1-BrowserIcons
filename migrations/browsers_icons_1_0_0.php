@@ -1,7 +1,7 @@
 <?php
 /**
 *
-* @package phpBB Extension - Browsers icons in miniprofile
+* @package phpBB Extension - Browsers icons in who is online
 * @copyright (c) 2015 Sheer
 * @license http://opensource.org/licenses/gpl-2.0.php GNU General Public License v2
 *
