@@ -6,5 +6,13 @@ services:
             - @template
             - @dbal.conn
             - @config
+            - @controller.helper
+            - @sheer.browsers_icons.helper
+            - @user
+            - @auth
         tags:
             - { name: event.listener }
+    sheer.browsers_icons.helper:
+        class: sheer\browsers_icons\core\helper
+        arguments:
+            - %core.root_path%
