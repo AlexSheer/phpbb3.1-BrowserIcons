@@ -1,0 +1,10 @@
+services:
+    sheer.browsers_icons.listener:
+        class: sheer\browsers_icons\event\listener
+        arguments:
+            - %core.root_path%
+            - @template
+            - @dbal.conn
+            - @config
+        tags:
+            - { name: event.listener }
