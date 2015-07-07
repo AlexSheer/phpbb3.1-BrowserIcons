@@ -1,7 +1,7 @@
 <?php
 /**
 *
-* @package phpBB Extension - Browsers icons in miniprofile
+* @package phpBB Extension - Browsers icons in who is online
 * @copyright (c) 2015 Sheer
 * @license http://opensource.org/licenses/gpl-2.0.php GNU General Public License v2
 *
@@ -25,8 +25,10 @@ class listener implements EventSubscriberInterface
 	static public function getSubscribedEvents()
 	{
 		return array(
-			'core.viewtopic_cache_user_data'	=> 'cache_user_data',
-			'core.viewtopic_modify_post_row'	=> 'viewtopic_modify_post_row',
+			'core.viewtopic_cache_user_data'			=> 'cache_user_data',
+			'core.viewtopic_modify_post_row'			=> 'viewtopic_modify_post_row',
+			'core.obtain_users_online_string_sql'		=> 'users_online_string_sql',
+			'core.obtain_users_online_string_modify'	=> 'users_online_string',
 		);
 	}
 
@@ -42,6 +44,12 @@ class listener implements EventSubscriberInterface
 	/** @var \phpbb\config\config $config */
 	protected $config;
 
+	/** @var \phpbb\user */
+	protected $user;
+
+	/** @var \phpbb\auth\auth */
+	protected $auth;
+
 	/**
 	* Constructor
 	*/
@@ -49,21 +57,31 @@ class listener implements EventSubscriberInterface
 		$phpbb_root_path,
 		\phpbb\template\template $template,
 		\phpbb\db\driver\driver_interface $db,
-		\phpbb\config\config $config
+		\phpbb\config\config $config,
+		\phpbb\controller\helper $controller_helper,
+		$helper,
+		\phpbb\user $user,
+		\phpbb\auth\auth $auth
 	)
 	{
 		$this->phpbb_root_path = $phpbb_root_path;
 		$this->template = $template;
 		$this->db = $db;
 		$this->config = $config;
+		$this->controller_helper = $controller_helper;
+		$this->helper = $helper;
+		$this->user = $user;
+		$this->auth = $auth;
 	}
 
 	public function cache_user_data($event)
 	{
 		$cache_user_data = $event['user_cache_data'];
+		$sql_where = ($this->auth->acl_get('u_viewonline')) ? '' : 'AND session_viewonline = 1';
 		$sql = 'SELECT session_browser
 			FROM ' . SESSIONS_TABLE . '
 			WHERE session_user_id = '. $event['poster_id']. '
+			' . $sql_where . '
 			AND session_time >= '. (time() - ($this->config['load_online_time'] * 60)) .'';
 		$result = $this->db->sql_query($sql);
 		if ($cache_user_data['session_browser'] = $this->db->sql_fetchfield('session_browser'))
@@ -78,105 +96,48 @@ class listener implements EventSubscriberInterface
 		{
 			$session_browser = $event['user_poster_data']['session_browser'];
 
-			if (stristr($session_browser, 'Firefox')) $user_browser = 'Firefox';
-			elseif (stristr($session_browser, 'Chrome')) $user_browser = 'Chrome';
-			elseif (stristr($session_browser, 'Safari')) $user_browser = 'Safari';
-			elseif (stristr($session_browser, 'Opera Mini')) $user_browser = 'Operamini';
-			elseif (stristr($session_browser, 'Opera')) $user_browser = 'Opera';
-			elseif (stristr($session_browser, 'MSIE 6.0')) $user_browser = 'IE6';
-			elseif (stristr($session_browser, 'MSIE 7.0')) $user_browser = 'IE7';
-			elseif (stristr($session_browser, 'MSIE 8.0')) $user_browser = 'IE8';
-			elseif (stristr($session_browser, 'MSIE 9.0')) $user_browser = 'IE9';
-			elseif (stristr($session_browser, 'MSIE 10.0')) $user_browser = 'IE10';
-			elseif (stristr($session_browser, 'Trident/7.0; rv:11.0')) $user_browser = 'IE11';
-			elseif (stristr($session_browser, 'UCBrowser')) $user_browser = 'Usbrowser';
-			else $user_browser = 'Unknown';
-
-			$systems = array('Amiga', 'BeOS', 'FreeBSD', 'HP-UX', 'Linux', 'NetBSD', 'OS/2', 'SunOS', 'Symbian', 'Unix', 'Windows', 'Sun', 'Macintosh', 'Mac');
-			$system = '';
-			foreach ($systems as $item)
-			{
-				if(strpos($session_browser, $item))
-				{
-					$system = $item;
-					break;
-				}
-			}
-			if ($system == 'Linux')
-			{
-				$systems = array('Android', 'CentOS', 'Debian', 'Fedora', 'Freespire', 'Gentoo', 'Katonix', 'KateOS', 'Knoppix', 'Kubuntu', 'Linspire', 'Mandriva', 'Mandrake', 'RedHat', 'Slackware', 'Slax', 'Suse', 'Xubuntu', 'Ubuntu', 'Xandros', 'Arch', 'Ark');
-
-				foreach ($systems as $item)
-				{
-					if(strpos($session_browser, $item))
-					{
-						$system = $item;
-						break;
-					}
-				}
-				if ($system == '')
-				{
-					$system = 'Linux';
-				}
-
-				if ($system == 'Mandrake')
-				{
-					$system = 'Mandriva';
-				}
-			}
-			elseif ($system == 'Windows')
-			{
-				$version = substr($session_browser, strpos(strtolower($session_browser), 'windows nt ') + 11);
-				if (substr($version, 0, 3) == 5.1)
-					$system = 'Windows XP';
-				elseif (substr($version, 0, 1) == 6)
-				{
-					if (substr($version, 0, 3) == 6.0)
-					{
-						$system = 'Windows Vista';
-					}
-					elseif (substr($version, 0, 3) == 6.1)
-					{
-						$system = 'Windows 7';
-					}
-					elseif (substr($version, 0, 3) == 6.2)
-					{
-						$system = 'Windows 8';
-					}
-					elseif (substr($version, 0, 3) == 6.3)
-					{
-						$system = 'Windows 8.1';
-					}
-				}
-				elseif (substr($version, 0, 3) == 10)
-				{
-					if (substr($version, 0, 3) == 10.0)
-					{
-						$system = 'Windows 10';
-					}
-				}
-			}
-			elseif ($system == 'Mac')
-			{
-				$system = 'Macintosh';
-			}
-			if (!$system)
-			{
-				$system = 'unknown';
-			}
-
-			if (substr($system, 0, 11) == 'unknown')
-			{
-				$sys = 'unknown';
-			}
-
-			$sys = str_replace(' ', '', strtolower($system)); // remove spaces
-			$sys = preg_replace('/[^a-z0-9_]/', '', $sys); // remove special characters
+			$user_browser = $this->helper->get_user_browser($session_browser);
+			$user_system = $this->helper->get_system($session_browser);
 
 			$this->template->assign_vars(array(
-				'BROWSER'	=> '<img src="' . $this->phpbb_root_path . 'ext/sheer/browsers_icons/styles/all/theme/images/browsers/' . strtolower($user_browser) . '.png" alt="' . $user_browser . '" title="' . $user_browser . '"/>',
-				'SYSTEM'	=> '<img src="' . $this->phpbb_root_path . 'ext/sheer/browsers_icons/styles/all/theme/images/os/' . $sys . '.png" alt="' . $system . '" title="' . $system . '"/>',
+				'BROWSER'	=> $user_browser,
+				'SYSTEM'	=> $user_system,
 			));
 		}
+	}
+
+	public function users_online_string_sql($event)
+	{
+		$string_sql = $event['sql'];
+		$online_users = $event['online_users']['online_users'];
+		$sql = 'SELECT u.username, u.username_clean, u.user_id, u.user_type, u.user_allow_viewonline, u.user_colour, s.session_browser
+			FROM ' . USERS_TABLE . ' u JOIN ' . SESSIONS_TABLE . ' s
+			ON u.user_id = s.session_user_id
+			WHERE ' . $this->db->sql_in_set('u.user_id', $event['online_users']['online_users']) . '
+				AND s.session_time >= ' . (time() - ($this->config['load_online_time'] * 60)) . '
+			GROUP BY u.user_id
+			ORDER BY u.username_clean ASC';
+			$event['sql'] = $sql;
+	}
+
+	public function users_online_string($event)
+	{
+		$rowset = $event['rowset'];
+		$user_online_link = $event['user_online_link'];
+		$online_userlist = $event['online_userlist'];
+		$browser = $sys = array();
+		foreach($rowset as $key => $value)
+		{
+			$browser[$value['user_id']] = $this->helper->get_user_browser($value['session_browser']);
+			$sys[$value['user_id']] = $this->helper->get_system($value['session_browser']);
+
+		}
+
+		foreach($user_online_link as $key => $value)
+		{
+			$user_online_link[$key] = $user_online_link[$key] . ' '.$browser[$key]. ' ' . $sys[$key];
+		}
+
+		$event['online_userlist'] = $this->user->lang['REGISTERED_USERS'] . ' ' . implode(', ', $user_online_link);
 	}
 }
