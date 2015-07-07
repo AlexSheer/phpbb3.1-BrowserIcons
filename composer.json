@@ -1,7 +1,7 @@
 {
     "name": "sheer/browsers_icons",
     "type": "phpbb-extension",
-    "description": "Show browsers icons in miniprofile",
+    "description": "Show browsers icons in who is online and miniprofile on viewtopic page",
     "homepage": "http://www.phpbbguru.net",
     "version": "1.0.0",
     "time": "2015-07-07",
@@ -20,7 +20,7 @@
       "phpbb/epv": "dev-master"
     },
     "extra": {
-        "display-name": "Browsers icons in miniprofile",
+        "display-name": "Browsers icons in who is online",
         "soft-require": {
             "phpbb/phpbb": "3.1.*@dev"
         }
